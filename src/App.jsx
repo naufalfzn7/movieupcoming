@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router";
 
-const API_TOKEN = "Bearer YOUR_TMDB_BEARER_TOKEN_HERE";
+const API_TOKEN = import.meta.env.VITE_TMDB_BEARER_TOKEN;
 
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 
@@ -11,13 +11,20 @@ const App = () => {
   const [sortOption, setSortOption] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // =========================
   // FETCH UPCOMING MOVIES
   // =========================
   const fetchUpcomingMovies = async (pages = 5) => {
     setLoading(true);
+    setErrorMessage("");
     try {
+      if (!API_TOKEN) {
+        throw new Error(
+          "Missing TMDB token. Set VITE_TMDB_BEARER_TOKEN in your environment.",
+        );
+      }
       let allMovies = [];
 
       for (let page = 1; page <= pages; page++) {
@@ -26,10 +33,18 @@ const App = () => {
           {
             headers: {
               accept: "application/json",
-              Authorization: API_TOKEN,
+              Authorization: API_TOKEN.startsWith("Bearer ")
+                ? API_TOKEN
+                : `Bearer ${API_TOKEN}`,
             },
           },
         );
+
+        if (!response.ok) {
+          throw new Error(
+            `TMDB request failed (${response.status}). Check your token and quota.`,
+          );
+        }
 
         const data = await response.json();
         allMovies = [...allMovies, ...data.results];
@@ -39,6 +54,7 @@ const App = () => {
       setDisplayedMovies(allMovies);
     } catch (error) {
       console.error("Error fetching movies:", error);
+      setErrorMessage(error.message || "Failed to load movies.");
     } finally {
       setLoading(false);
     }
@@ -138,6 +154,7 @@ const App = () => {
 
       {/* LOADING */}
       {loading && <p className="loading">Loading movies...</p>}
+      {errorMessage && <p className="loading">{errorMessage}</p>}
 
       {/* MOVIE LIST */}
       <ul className="movie-grid">
