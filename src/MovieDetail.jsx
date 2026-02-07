@@ -1,24 +1,75 @@
 import React from "react";
 import { Link, useParams } from "react-router";
 
+const API_TOKEN = import.meta.env.VITE_TMDB_BEARER_TOKEN;
+
 const fetchMovieDetail = async (movieId) => {
-  const API_URL = `https://api.themoviedb.org/3/movie/${movieId}?api_key=0579811e9736cbe475fc80c8fc54ad44`;
-  const response = await fetch(API_URL);
-  const data = await response.json();
-  return data;
+  if (!API_TOKEN) {
+    throw new Error(
+      "Missing TMDB token. Set VITE_TMDB_BEARER_TOKEN in your environment.",
+    );
+  }
+
+  const response = await fetch(
+    `https://api.themoviedb.org/3/movie/${movieId}?language=en-US`,
+    {
+      headers: {
+        accept: "application/json",
+        Authorization: API_TOKEN.startsWith("Bearer ")
+          ? API_TOKEN
+          : `Bearer ${API_TOKEN}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `TMDB request failed (${response.status}). Check your token and quota.`,
+    );
+  }
+
+  return response.json();
 };
 const MovieDetail = () => {
   const [movieDetail, setMovieDetail] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState("");
   const { movieId } = useParams();
 
   React.useEffect(() => {
     const getMovieDetail = async () => {
-      const data = await fetchMovieDetail(movieId);
-      setMovieDetail(data);
+      setLoading(true);
+      setErrorMessage("");
+      try {
+        const data = await fetchMovieDetail(movieId);
+        setMovieDetail(data);
+      } catch (error) {
+        console.error("Error fetching movie detail:", error);
+        setErrorMessage(error.message || "Failed to load movie detail.");
+        setMovieDetail(null);
+      } finally {
+        setLoading(false);
+      }
     };
 
     getMovieDetail();
   }, [movieId]);
+
+  if (loading) {
+    return (
+      <div className="page">
+        <p className="loading">Loading...</p>
+      </div>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="page">
+        <p className="loading">{errorMessage}</p>
+      </div>
+    );
+  }
 
   if (!movieDetail) {
     return (
